@@ -22,7 +22,6 @@ var client = http.Client{
 }
 
 func main() {
-	os.Setenv("HTTP_PROXY", "http://proxycorsp:8060")
 	pnm, err := paginasNomesMasculinos()
 	if err != nil {
 		log.Fatal(err)
