@@ -2,14 +2,14 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"io/ioutil"
 	"github.com/pkg/errors"
 	"strconv"
-	"fmt"
 	"log"
 	"regexp"
 	"time"
+	"strings"
+	"fmt"
 )
 
 const site = "https://www.dicionariodenomesproprios.com.br"
@@ -21,9 +21,28 @@ var client = http.Client{
 }
 
 func main() {
-	os.Setenv("HTTP_PROXY", "http://proxycorsp:8060")
-	pnm := 100
-	err := getNomesMasculinos(pnm)
+	//os.Setenv("HTTP_PROXY", "http://proxycorsp:8060")
+	pnm, err := paginasNomesMasculinos()
+	if err != nil {
+		log.Fatal(err)
+	}
+	pnf, err := paginasNomesFemininos()
+	if err != nil {
+		log.Fatal(err)
+	}
+	nomes, err := getNomesMasculinos(pnm)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = ioutil.WriteFile("./nomes-masculinos.txt", []byte(strings.Join(nomes, "\r\n")), 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	nomes, err = getNomesFemininos(pnf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = ioutil.WriteFile("./nomes-femininos.txt", []byte(strings.Join(nomes, "\r\n")), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -82,25 +101,32 @@ func paginasNomesFemininos() (int, error) {
 	return paginasNomes("/nomes-femininos/")
 }
 
-func getNomesMasculinos(paginas int) error {
+func getNomes(endpoint string, paginas int) ([]string, error) {
 	re, err := regexp.Compile(`<a class="lista-nome" href="[^"]+">([^<]+)</a>`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	nomes := make([]string, 0)
 	for i := 1; i <= paginas; i++ {
-		fmt.Printf("\n--- página %v ---\n\n", i)
-		html, err := get("/nomes-masculinos/" + strconv.Itoa(i) + "/")
+		fmt.Printf("\n--- Página " + strconv.Itoa(i) + " ---\n\n")
+		html, err := get(endpoint + strconv.Itoa(i) + "/")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		matches := re.FindAllStringSubmatch(html, -1)
 		for _, m := range matches {
-			fmt.Println(m[1])
 			nomes = append(nomes, m[1])
+			fmt.Println(m[1])
 		}
-		fmt.Printf("%v elementos encontrados.\n", len(nomes))
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 125)
 	}
-	return nil
+	return nomes, nil
+}
+
+func getNomesMasculinos(paginas int) ([]string, error) {
+	return getNomes("/nomes-masculinos/", paginas)
+}
+
+func getNomesFemininos(paginas int) ([]string, error) {
+	return getNomes("/nomes-femininos/", paginas)
 }
